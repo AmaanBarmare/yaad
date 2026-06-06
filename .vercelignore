@@ -1,0 +1,11 @@
+# Backend (repo-root) Vercel project — exclude everything not needed at runtime.
+frontend/
+node_modules/
+venv/
+.venv/
+__pycache__/
+scripts/
+supabase/
+*.pptx
+Yaad_deck_build.js
+.env

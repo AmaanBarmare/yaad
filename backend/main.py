@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -17,16 +18,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Serverless platforms (Vercel) set this; APScheduler can't run there because
+# there's no long-lived process. The on-demand reminder endpoint still works;
+# the daily cron should be a Vercel Cron Job hitting an endpoint instead.
+IS_SERVERLESS = bool(os.getenv("VERCEL"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Yaad backend")
-    try:
-        start_scheduler()
-    except Exception as exc:  # noqa: BLE001 — never block startup on the cron
-        logger.error("Failed to start scheduler: %s", exc)
+    if not IS_SERVERLESS:
+        try:
+            start_scheduler()
+        except Exception as exc:  # noqa: BLE001 — never block startup on the cron
+            logger.error("Failed to start scheduler: %s", exc)
     yield
-    shutdown_scheduler()
+    if not IS_SERVERLESS:
+        shutdown_scheduler()
     logger.info("Yaad backend stopped")
 
 
@@ -35,6 +43,8 @@ app = FastAPI(title="Yaad", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.FRONTEND_ORIGIN, "http://localhost:5173"],
+    # Allow any Vercel preview/production deployment of the frontend.
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
