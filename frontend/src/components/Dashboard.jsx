@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getCustomers } from '../api/client.js'
+import { getCustomers, generateReminder } from '../api/client.js'
+import VoiceNotePlayer from './VoiceNotePlayer.jsx'
 
 const RISK_LABEL = {
   overdue: 'Overdue',
@@ -37,10 +38,19 @@ function RiskBadge({ risk }) {
 
 const RISK_ORDER = { overdue: 0, due_soon: 1, ok: 2 }
 
-export default function Dashboard({ refreshKey }) {
+const PROGRESS_LABEL = {
+  generating_message: 'Generating message…',
+  synthesising_audio: 'Synthesising voice…',
+}
+
+export default function Dashboard({ refreshKey, onOpenCustomer }) {
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // reminder generation state
+  const [progress, setProgress] = useState({}) // { [customerId]: 'generating_message' | 'synthesising_audio' }
+  const [reminder, setReminder] = useState(null) // { customerName, messageText, audioBase64, audioUrl }
 
   useEffect(() => {
     let active = true
@@ -66,6 +76,32 @@ export default function Dashboard({ refreshKey }) {
       active = false
     }
   }, [refreshKey])
+
+  const handleGenerate = async (cust) => {
+    setReminder(null)
+    setProgress((p) => ({ ...p, [cust.id]: 'generating_message' }))
+    try {
+      await generateReminder(cust.id, (event, data) => {
+        if (event === 'generating_message' || event === 'synthesising_audio') {
+          setProgress((p) => ({ ...p, [cust.id]: event }))
+        } else if (event === 'ready') {
+          setProgress((p) => ({ ...p, [cust.id]: null }))
+          setReminder({
+            customerName: cust.name,
+            messageText: data.message_text,
+            audioBase64: data.audio_base64,
+            audioUrl: data.audio_url,
+          })
+        } else if (event === 'error') {
+          setProgress((p) => ({ ...p, [cust.id]: null }))
+          setError(`Voice note failed: ${data.detail || 'unknown error'}`)
+        }
+      })
+    } catch (e) {
+      setProgress((p) => ({ ...p, [cust.id]: null }))
+      setError(`Voice note failed: ${e.message}`)
+    }
+  }
 
   const counts = customers.reduce(
     (acc, c) => {
@@ -113,72 +149,121 @@ export default function Dashboard({ refreshKey }) {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>Reorder watchlist</h2>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Recent items</th>
-                <th>Last purchase</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading &&
-                Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="skeleton-row">
-                    <td><div style={{ width: '60%' }} /></td>
-                    <td><div style={{ width: '80%' }} /></td>
-                    <td><div style={{ width: '50%' }} /></td>
-                    <td><div style={{ width: '40%' }} /></td>
-                  </tr>
-                ))}
-
-              {!loading && !error && customers.length === 0 && (
+      <div className="layout-split">
+        <div className="card">
+          <div className="card-head">
+            <h2>Reorder watchlist</h2>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={4}>
-                    <div className="state">
-                      <p className="state-title">No customers yet</p>
-                      <p>Run <code>python scripts/seed.py</code> to populate demo data.</p>
-                    </div>
-                  </td>
+                  <th>Customer</th>
+                  <th>Recent items</th>
+                  <th>Last purchase</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
-              )}
+              </thead>
+              <tbody>
+                {loading &&
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i} className="skeleton-row">
+                      <td><div style={{ width: '60%' }} /></td>
+                      <td><div style={{ width: '80%' }} /></td>
+                      <td><div style={{ width: '50%' }} /></td>
+                      <td><div style={{ width: '40%' }} /></td>
+                      <td><div style={{ width: '60%' }} /></td>
+                    </tr>
+                  ))}
 
-              {!loading &&
-                customers.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      <div className="cust">
-                        <span className="avatar">{initials(c.name)}</span>
-                        <div>
-                          <div className="cust-name">{c.name}</div>
-                          {c.phone && <div className="cust-phone tnum">{c.phone}</div>}
-                        </div>
+                {!loading && !error && customers.length === 0 && (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="state">
+                        <p className="state-title">No customers yet</p>
+                        <p>Run <code>python scripts/seed.py</code> to populate demo data.</p>
                       </div>
                     </td>
-                    <td>
-                      {c.recent_items?.length ? (
-                        <div className="items-cell">
-                          {c.recent_items.map((item, i) => (
-                            <span className="chip" key={i}>{item}</span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                    <td className="tnum muted">{relativeDays(c.last_purchase_at)}</td>
-                    <td><RiskBadge risk={c.risk} /></td>
                   </tr>
-                ))}
-            </tbody>
-          </table>
+                )}
+
+                {!loading &&
+                  customers.map((c) => {
+                    const busy = progress[c.id]
+                    return (
+                      <tr key={c.id}>
+                        <td>
+                          <button className="cust cust-link" onClick={() => onOpenCustomer?.(c.id)} title="View purchase history">
+                            <span className="avatar">{initials(c.name)}</span>
+                            <div>
+                              <div className="cust-name">{c.name}</div>
+                              {c.phone && <div className="cust-phone tnum">{c.phone}</div>}
+                            </div>
+                          </button>
+                        </td>
+                        <td>
+                          {c.recent_items?.length ? (
+                            <div className="items-cell">
+                              {c.recent_items.map((item, i) => (
+                                <span className="chip" key={i}>{item}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td className="tnum muted">{relativeDays(c.last_purchase_at)}</td>
+                        <td><RiskBadge risk={c.risk} /></td>
+                        <td>
+                          <button
+                            className="gen-btn"
+                            onClick={() => handleGenerate(c)}
+                            disabled={!!busy}
+                          >
+                            {busy ? (
+                              <>
+                                <span className="spinner" />
+                                {PROGRESS_LABEL[busy]}
+                              </>
+                            ) : (
+                              <>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                  <path d="M12 3v3M12 18v3M5 12H2M22 12h-3M6 6 4 4M18 18l2 2M6 18l-2 2M18 6l2-2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                                  <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+                                </svg>
+                                Generate reminder
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <aside className="reminder-panel">
+          <div className="panel-head">Voice reminder</div>
+          {reminder ? (
+            <VoiceNotePlayer
+              customerName={reminder.customerName}
+              messageText={reminder.messageText}
+              audioBase64={reminder.audioBase64}
+              audioUrl={reminder.audioUrl}
+            />
+          ) : (
+            <div className="panel-empty">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              <p>Hit <strong>Generate reminder</strong> on any customer to create and play a Hindi voice note.</p>
+            </div>
+          )}
+        </aside>
       </div>
     </>
   )

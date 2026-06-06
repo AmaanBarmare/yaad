@@ -33,6 +33,7 @@ class SimulatePaymentResponse(BaseModel):
     txn_id: Optional[str] = None
     amount: float = 200.0
     audio_clip_url: Optional[str] = None
+    audio_base64: Optional[str] = None
     message: str = "Payment received"
 
 

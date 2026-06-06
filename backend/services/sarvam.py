@@ -43,7 +43,8 @@ Under 30 words. Sound local, not corporate.
 Return ONLY the message."""
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        # sarvam-30b is a reasoning model and can be slow; allow generous time.
+        async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
                 CHAT_URL,
                 headers={"Authorization": f"Bearer {settings.SARVAM_API_KEY}"},
@@ -63,7 +64,7 @@ async def generate_voice_note(text: str, language: str = "hi-IN") -> str:
     """Synthesise a Hindi voice note via Bulbul V3. Returns base64 audio."""
     target_language_code = _normalise_lang(language)
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
                 TTS_URL,
                 headers={"api-subscription-key": settings.SARVAM_API_KEY},

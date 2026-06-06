@@ -15,23 +15,38 @@ from models import (
     ItemOut,
     SimulatePaymentResponse,
 )
-from services import supabase_client, vision
+from services import sarvam, supabase_client, vision
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
+
+# Cache the Bulbul-generated soundbox clip so we synthesise it only once.
+_SOUNDBOX_PHRASE = "दो सौ रुपये प्राप्त हुए। पेटीएम।"
+_soundbox_audio_cache: str | None = None
 
 
 @router.post("/simulate-payment", response_model=SimulatePaymentResponse)
 async def simulate_payment() -> SimulatePaymentResponse:
     """Simulate the Paytm soundbox firing on a ₹200 payment.
 
-    Audio generation is wired in a later session — for now we just log and
-    return a null clip URL so the frontend can open the photo modal.
+    Returns Bulbul-generated audio ("Do sau rupaye prapt hue") so the frontend
+    can play the soundbox sound, then prompt the merchant to log items.
     """
+    global _soundbox_audio_cache
     logger.info("Soundbox simulated: ₹200 received — prompting merchant to log items")
+
+    if _soundbox_audio_cache is None:
+        try:
+            _soundbox_audio_cache = await sarvam.generate_voice_note(
+                _SOUNDBOX_PHRASE, language="hi-IN"
+            )
+        except Exception as exc:  # noqa: BLE001 — soundbox audio is best-effort
+            logger.error("Soundbox TTS failed: %s", exc)
+
     return SimulatePaymentResponse(
         amount=200.0,
         audio_clip_url=None,
+        audio_base64=_soundbox_audio_cache,
         message="₹200 received — tap to log items",
     )
 
