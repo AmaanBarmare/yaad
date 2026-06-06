@@ -111,6 +111,12 @@ export default function Dashboard({ refreshKey, onOpenCustomer }) {
     { overdue: 0, due_soon: 0, ok: 0 }
   )
 
+  // Which customer (if any) is currently generating, for the floating panel.
+  const genEntry = Object.entries(progress).find(([, v]) => v)
+  const genStatus = genEntry ? genEntry[1] : null
+  const genName = genEntry ? customers.find((c) => c.id === genEntry[0])?.name : null
+  const showPanel = !!reminder || !!genStatus
+
   return (
     <>
       <div className="page-head">
@@ -149,8 +155,7 @@ export default function Dashboard({ refreshKey, onOpenCustomer }) {
         </div>
       </div>
 
-      <div className="layout-split">
-        <div className="card">
+      <div className="card">
           <div className="card-head">
             <h2>Reorder watchlist</h2>
           </div>
@@ -245,8 +250,16 @@ export default function Dashboard({ refreshKey, onOpenCustomer }) {
           </div>
         </div>
 
-        <aside className="reminder-panel">
-          <div className="panel-head">Voice reminder</div>
+      {showPanel && (
+        <aside className="reminder-panel floating" role="status" aria-live="polite">
+          <div className="panel-head">
+            <span>Voice reminder</span>
+            {reminder && (
+              <button className="icon-btn sm" onClick={() => setReminder(null)} aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+            )}
+          </div>
           {reminder ? (
             <VoiceNotePlayer
               customerName={reminder.customerName}
@@ -256,15 +269,12 @@ export default function Dashboard({ refreshKey, onOpenCustomer }) {
             />
           ) : (
             <div className="panel-empty">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-              <p>Hit <strong>Generate reminder</strong> on any customer to create and play a Hindi voice note.</p>
+              <span className="spinner" />
+              <p>{PROGRESS_LABEL[genStatus] || 'Working…'}{genName ? ` — ${genName}` : ''}</p>
             </div>
           )}
         </aside>
-      </div>
+      )}
     </>
   )
 }

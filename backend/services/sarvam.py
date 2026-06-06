@@ -42,19 +42,34 @@ Items bought {days} days ago: {', '.join(items)}
 Under 30 words. Sound local, not corporate.
 Return ONLY the message."""
 
+    payload = {
+        "model": "sarvam-30b",
+        "messages": [{"role": "user", "content": prompt}],
+        # sarvam-30b is a reasoning model: its "thinking" consumes completion
+        # tokens before the answer. Give it enough room so `content` isn't
+        # truncated to null (finish_reason=length).
+        "max_tokens": 4000,
+    }
+
     try:
-        # sarvam-30b is a reasoning model and can be slow; allow generous time.
+        # Reasoning can be slow; allow generous time. Retry once if the model
+        # uses all its budget thinking and returns empty content.
         async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(
-                CHAT_URL,
-                headers={"Authorization": f"Bearer {settings.SARVAM_API_KEY}"},
-                json={
-                    "model": "sarvam-30b",
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"].strip()
+            for attempt in range(2):
+                r = await client.post(
+                    CHAT_URL,
+                    headers={"Authorization": f"Bearer {settings.SARVAM_API_KEY}"},
+                    json=payload,
+                )
+                r.raise_for_status()
+                msg = r.json()["choices"][0]["message"]
+                content = (msg.get("content") or "").strip()
+                if content:
+                    return content
+                logger.warning(
+                    "Sarvam returned empty content (attempt %d); retrying", attempt + 1
+                )
+        raise ValueError("Sarvam returned an empty message after retry")
     except Exception as exc:  # noqa: BLE001
         logger.error("Sarvam message generation failed: %s", exc)
         raise
