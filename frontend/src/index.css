@@ -1,0 +1,66 @@
+:root {
+  /* Warm India-fintech palette — saffron/gold trust on a cream canvas */
+  --saffron: #f59e0b;
+  --saffron-deep: #d97706;
+  --saffron-soft: #fde9c8;
+  --ink: #1c1410;
+  --ink-soft: #6b5d4f;
+  --cream: #fbf7f0;
+  --surface: #ffffff;
+  --border: #ece3d6;
+  --border-strong: #ddd0bd;
+
+  /* Risk semantics */
+  --ok: #15803d;
+  --ok-bg: #e6f4ea;
+  --warn: #b45309;
+  --warn-bg: #fdedd3;
+  --danger: #b91c1c;
+  --danger-bg: #fbe4e2;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-sm: 0 1px 2px rgba(28, 20, 16, 0.05);
+  --shadow-md: 0 8px 24px -12px rgba(28, 20, 16, 0.18);
+
+  --font-head: 'Fraunces', Georgia, serif;
+  --font-body: 'Fira Sans', system-ui, -apple-system, sans-serif;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* tabular figures for dates / numbers so columns don't jitter */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
