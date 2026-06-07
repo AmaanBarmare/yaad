@@ -36,15 +36,25 @@ async def generate_message(
     language: str = "hi",
 ) -> str:
     """Generate a warm Hindi WhatsApp reminder via Sarvam 30B."""
-    prompt = f"""Write a warm Hindi WhatsApp reminder from a kirana shopkeeper.
+    items_str = ", ".join(items)
+    prompt = f"""You are a friendly neighbourhood kirana (grocery) shopkeeper in India \
+writing a short WhatsApp reorder reminder to a regular customer.
+
 Customer: {customer_name}
-Items bought {days} days ago: {', '.join(items)}
-Under 30 words. Sound local, not corporate.
-Return ONLY the message."""
+Items they bought about {days} days ago and are probably running low on: {items_str}
+
+Write ONE warm, casual message in Hindi (Hinglish/Roman Hindi is fine) that:
+- greets {customer_name} by name
+- explicitly names the item(s): {items_str}
+- gently says these are probably finishing and invites them to reorder / drop by
+
+Hard rules: under 25 words, local and personal (not corporate), and it MUST mention \
+the item name(s) above. Return ONLY the message text — no quotes, no explanation, no preamble."""
 
     payload = {
         "model": "sarvam-30b",
         "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.6,
         # sarvam-30b is a reasoning model: its "thinking" consumes completion
         # tokens before the answer. Give it enough room so `content` isn't
         # truncated to null (finish_reason=length).
