@@ -1,7 +1,10 @@
 import axios from 'axios'
 
 // Single Axios instance for all backend calls.
-export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+// In production the backend is a Vercel "service" mounted at /api on the same
+// origin (see vercel.json experimentalServices). In dev, Vite proxies /api to
+// the local uvicorn server (see vite.config.js). Override with VITE_API_BASE.
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 const client = axios.create({
   baseURL: API_BASE,

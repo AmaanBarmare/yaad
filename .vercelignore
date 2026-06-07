@@ -1,11 +1,13 @@
-# Backend (repo-root) Vercel project — exclude everything not needed at runtime.
-frontend/
-node_modules/
-venv/
-.venv/
+# Keep frontend/ and backend/ — both are Vercel services (see vercel.json).
+.env
+backend/.env
 __pycache__/
+*.pyc
+node_modules/
+frontend/dist/
+*.pptx
 scripts/
 supabase/
-*.pptx
-Yaad_deck_build.js
-.env
+.DS_Store
+.vercel/
+.git/
